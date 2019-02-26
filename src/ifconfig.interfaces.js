@@ -8,31 +8,59 @@ var DESTINATIONS = ['default', 'link-local'];
 
 module.exports = function (cp) {
   return function (f) {
-    // @todo add command timeout
-    cp.exec('ifconfig', function (err, ifConfigOut, stderr) {
-      if (err) {
-        return f(err);
-      }
 
-      if (stderr) {
-        return f(stderr);
-      }
+    //  Check for platform to do different things
+    if (process.platform == 'win32'){
 
-      cp.exec('route', function (err, routeOut, stderr) {
-        if (err) {
-          return f(err);
-        }
+      //  Use netsh command to get NIC information
+      cp.exec('netsh interface ipv4 show config', (err, ifConfigOut, stderr) => {
+        if (err)
+          return f(err)
+        else if (stderr)
+          return f(stderr)
+        else
+          f(null, parseWindows(ifConfigOut.replace(/^\s+|\s+$/g, '')))
+      })
+    } else {
 
-        if (stderr) {
-          return f(stderr);
-        }
+        // @todo add command timeout
+        cp.exec('ifconfig', function (err, ifConfigOut, stderr) {
+          if (err) {
+            return f(err);
+          }
 
-        f(null, parse(ifConfigOut, routeOut));
-      });
-    });
-  };
+          if (stderr) {
+            return f(stderr);
+          }
+
+          cp.exec('route', function (err, routeOut, stderr) {
+            if (err) {
+              return f(err);
+            }
+
+            if (stderr) {
+              return f(stderr);
+            }
+
+            f(null, parse(ifConfigOut, routeOut));
+          });
+        });
+      };
+    }
 };
 
+function parseWindows(ifConfigOut){
+  return ifConfigOut.split('\n\r').map(function (inface) {
+    return {
+      name: getInterfaceName(inface),
+      ip: getInterfaceIpAddr(inface),
+      netmask: getInterfaceNetmaskAddr(inface),
+      broadcast: getBroadcastAddr(inface),
+      mac: getInterfaceMacAddr(inface),
+      gateway: getGateway(inface)
+    }
+  })
+}
 function parse(ifConfigOut, routeOut) {
   return ifConfigOut.split('\n\n').map(function (inface) {
     var lines = inface.split('\n');
@@ -58,7 +86,11 @@ function parse(ifConfigOut, routeOut) {
 }
 
 function getInterfaceName(firstLine) {
-  return _.first(firstLine.split(' '));
+  if (process.platform == 'win32'){
+    const nicName = /Configuration for interface "(.*)"/.exec(firstLine)
+    return nicName[1]
+  } else
+    return _.first(firstLine.split(' '));
 }
 
 /**
@@ -72,17 +104,21 @@ function getInterfaceName(firstLine) {
  * @return {string}           Mac address, format: "xx:xx:xx:xx:xx:xx"
  */
 function getInterfaceMacAddr(firstLine) {
-  if (!_.includes(firstLine, MAC)) {
-    return null;
+  if (process.platform == 'win32'){
+    return null
+  } else {
+    if (!_.includes(firstLine, MAC)) {
+      return null;
+    }
+
+    var macAddr = _.last(firstLine.split(MAC)).trim().replace(/-/g, ':');
+
+    if (macAddr.split(':').length !== 6) {
+      return null;
+    }
+
+    return macAddr;
   }
-
-  var macAddr = _.last(firstLine.split(MAC)).trim().replace(/-/g, ':');
-
-  if (macAddr.split(':').length !== 6) {
-    return null;
-  }
-
-  return macAddr;
 }
 
 /**
@@ -95,10 +131,15 @@ function getInterfaceMacAddr(firstLine) {
  * @return {string,null} xxx.xxx.xxx.xxx
  */
 function getInterfaceIpAddr(line) {
-  if (!_.includes(line, INET)) {
-    return null;
+  if (process.platform == 'win32'){
+    const address = /IP Address: *(.*)/.exec(line)
+    return address ? address[1] : null
+  } else {
+    if (!_.includes(line, INET)) {
+      return null;
+    }
+    return _.first(line.split(':')[1].split(' '));
   }
-  return _.first(line.split(':')[1].split(' '));
 }
 
 /**
@@ -111,10 +152,15 @@ function getInterfaceIpAddr(line) {
  * @return {string,null} xxx.xxx.xxx.xxx
  */
 function getInterfaceNetmaskAddr(line) {
-  if (!_.includes(line, INET)) {
+  if (process.platform == 'win32'){
+    const netmask = /Subnet Prefix:.*mask (.*)/.exec(line)
+    return netmask ? netmask[1].slice(0,-1) : null
+  } else {
+    if (!_.includes(line, INET)) {
     return null;
+    }
+    return _.last(line.split(':'));
   }
-  return _.last(line.split(':'));
 }
 
 /**
@@ -123,19 +169,32 @@ function getInterfaceNetmaskAddr(line) {
  * @return {string,null}      xxx.xxx.xxx.xxx
  */
 function getBroadcastAddr(line) {
-  if (!_.includes(line, BCAST)) {
-    return null;
-  }
+  if (process.platform == 'win32'){
 
-  // inet adr:1.1.1.77  Bcast:1.1.1.255  Masque:1.1.1.0
-  // @todo oh boy. this is ugly.
-  return _.chain(line)
-    .split(BCAST)
-    .slice(1)
-    .first()
-    .value()
-    .substring(1)
-    .split(' ')[0];
+    //  Calculcate this based on IP address and netmask
+    const netmask = /Subnet Prefix:.*mask (.*)/.exec(line)
+    const address = /IP Address: *(.*)/.exec(line)
+    if (netmask == null || address == null)
+      return null
+
+    //  For now punt and assume CIDR/24.  Just change last byte to 255
+    const broadcast = /([0-9]+\.[0-9]+\.[0-9]+\.)/.exec(address)
+    return broadcast[1] + '255'
+  } else {
+    if (!_.includes(line, BCAST)) {
+      return null;
+    }
+
+    // inet adr:1.1.1.77  Bcast:1.1.1.255  Masque:1.1.1.0
+    // @todo oh boy. this is ugly.
+    return _.chain(line)
+      .split(BCAST)
+      .slice(1)
+      .first()
+      .value()
+      .substring(1)
+      .split(' ')[0];
+  }
 }
 
 
@@ -145,15 +204,20 @@ function getBroadcastAddr(line) {
  * @return {string,null} default gateway ip or null
  */
 function getGateway(stdout) {
-  // @todo yep. this is ugly.
-  return stdout
-    .split('\n')
-    .filter(function (line) {
-      return _.some(DESTINATIONS, function (destination)  {
-        return _.includes(line, destination);
-      });
-    })[0]
-    .split(/\s+/)[1]
-    .split('.')[0]
-    .replace(/-/g, '.');
+  if (process.platform == 'win32'){
+    const gateway = /Default Gateway: *(.*)/.exec(stdout)
+    return gateway ? gateway[1] : null
+  } else {
+    // @todo yep. this is ugly.
+    return stdout
+      .split('\n')
+      .filter(function (line) {
+        return _.some(DESTINATIONS, function (destination)  {
+          return _.includes(line, destination);
+        });
+      })[0]
+      .split(/\s+/)[1]
+      .split('.')[0]
+      .replace(/-/g, '.');
+  }
 }

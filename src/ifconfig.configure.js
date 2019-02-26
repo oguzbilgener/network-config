@@ -14,29 +14,61 @@ module.exports = function (cp) {
     assert(_.isString(name));
     assert(_.isPlainObject(description));
 
-    fs.readFile(configure.FILE, {
-      encoding: 'utf8'
-    }, function (err, content) {
-      if (err) {
-        return f(err);
-      }
+     //  If on windows, it's completely different
+     if (process.platform == 'win32'){
+      const cmd = 'netsh interface ipv4 set address name="' + name + '" static ' + description.ip + ' ' + description.netmask
 
-      fs.writeFile(configure.FILE, replaceInterface(name, content, description), function (err) {
+      //  This command requires admin credentials.  As a result we can NOT simply use .exec.  Rather use this package
+      //  to elevalte our permissions before we try to reconfigure the NIC
+      const wincmd = require('node-windows')
+      wincmd.elevate(cmd, (err, ifConfigOut, stderr) => {
+        if (err)
+          return f(err)
+        else if (stderr)
+          return f(stderr)
+        else {
+
+          // //  Change the metric on this NIC.  We don't want him being used for internet access
+          // const cmd = 'netsh interface ipv4 set interface "' + name + '" metric=50'
+
+          // //  If this fails then it's not the worst thing in the world
+          // wincmd.elevate(cmd,(err, ifConfigOut, stderr) => {
+          //   if (err)
+          //     console.error(erro)
+          //   else if (stderr)
+          //     console.error(stderr)
+          // })
+
+          //  Advise him of result
+          f(null)
+        }
+      })
+    } else {
+
+      fs.readFile(configure.FILE, {
+        encoding: 'utf8'
+      }, function (err, content) {
         if (err) {
           return f(err);
         }
 
-        if (typeof description.restart == 'boolean'? description.restart : true) {
-          cp.exec('service networking reload', function (err, __, stderr) {
-            f(err || stderr || null);
-          });
-        } else {
-          f(null);
-        }
-      });
+        fs.writeFile(configure.FILE, replaceInterface(name, content, description), function (err) {
+          if (err) {
+            return f(err);
+          }
 
-    });
-  }
+          if (typeof description.restart == 'boolean'? description.restart : true) {
+            cp.exec('service networking reload', function (err, __, stderr) {
+              f(err || stderr || null);
+            });
+          } else {
+            f(null);
+          }
+        });
+
+      });
+    }
+}
 
   configure.FILE = '/etc/network/interfaces';
 
