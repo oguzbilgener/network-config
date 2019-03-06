@@ -1,9 +1,9 @@
 'use strict';
 var _ = require('lodash');
 
-var MAC = 'HWaddr';
+var MAC = 'ether';
 var INET = 'inet';
-var BCAST = 'Bcast';
+var BCAST = 'broadcast';
 var DESTINATIONS = ['default', 'link-local'];
 
 module.exports = function (cp) {
@@ -75,22 +75,22 @@ function parse(ifConfigOut, routeOut) {
      */
 
     return {
-      name: getInterfaceName(_.first(lines)),
+      name: getInterfaceName(lines[0]),
       ip: getInterfaceIpAddr(lines[1]),
       netmask: getInterfaceNetmaskAddr(lines[1]),
       broadcast: getBroadcastAddr(lines[1]),
-      mac: getInterfaceMacAddr(_.first(lines)),
+      mac: getInterfaceMacAddr(lines[3]),
       gateway: getGateway(routeOut)
     };
   });
 }
 
-function getInterfaceName(firstLine) {
+function getInterfaceName(line) {
   if (process.platform == 'win32'){
-    const nicName = /Configuration for interface "(.*)"/.exec(firstLine)
+    const nicName = /Configuration for interface "(.*)"/.exec(line)
     return nicName[1]
   } else
-    return _.first(firstLine.split(' '));
+    return _.first(line.split(':'));
 }
 
 /**
@@ -111,8 +111,7 @@ function getInterfaceMacAddr(firstLine) {
       return null;
     }
 
-    var macAddr = _.last(firstLine.split(MAC)).trim().replace(/-/g, ':');
-
+    var macAddr = firstLine.trim().split(' ')[1]
     if (macAddr.split(':').length !== 6) {
       return null;
     }
@@ -138,7 +137,7 @@ function getInterfaceIpAddr(line) {
     if (!_.includes(line, INET)) {
       return null;
     }
-    return _.first(line.split(':')[1].split(' '));
+    return line.trim().split(' ')[1]
   }
 }
 
@@ -159,7 +158,7 @@ function getInterfaceNetmaskAddr(line) {
     if (!_.includes(line, INET)) {
     return null;
     }
-    return _.last(line.split(':'));
+    return /netmask +([0-9,.]+)/.exec(line)[1]
   }
 }
 
@@ -184,16 +183,7 @@ function getBroadcastAddr(line) {
     if (!_.includes(line, BCAST)) {
       return null;
     }
-
-    // inet adr:1.1.1.77  Bcast:1.1.1.255  Masque:1.1.1.0
-    // @todo oh boy. this is ugly.
-    return _.chain(line)
-      .split(BCAST)
-      .slice(1)
-      .first()
-      .value()
-      .substring(1)
-      .split(' ')[0];
+    return /broadcast +(.*)/.exec(line)[1]
   }
 }
 
