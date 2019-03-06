@@ -45,27 +45,10 @@ module.exports = function (cp) {
       })
     } else {
 
-      fs.readFile(configure.FILE, {
-        encoding: 'utf8'
-      }, function (err, content) {
-        if (err) {
-          return f(err);
-        }
+      const cmd = "sudo ip addr add " + description.ip + "/24 dev " + description.name
 
-        fs.writeFile(configure.FILE, replaceInterface(name, content, description), function (err) {
-          if (err) {
-            return f(err);
-          }
-
-          if (typeof description.restart == 'boolean'? description.restart : true) {
-            cp.exec('service networking reload', function (err, __, stderr) {
-              f(err || stderr || null);
-            });
-          } else {
-            f(null);
-          }
-        });
-
+      cp.exec(cmd, function (err, __, stderr) {
+        f(err || stderr || null);
       });
     }
 }
