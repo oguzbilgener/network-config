@@ -51,7 +51,7 @@ module.exports = function (cp) {
 
 function parseWindows(ifConfigOut){
   return ifConfigOut.split('\n\r').map(function (inface) {
-    return {
+    result =  {
       name: getInterfaceName(inface),
       ip: getInterfaceIpAddr(inface),
       vlans: [],
@@ -60,6 +60,11 @@ function parseWindows(ifConfigOut){
       mac: getInterfaceMacAddr(inface),
       gateway: getGateway(inface)
     }
+
+    //  On windows, no vlans...but always have the primary IP
+    if (result.ip != null)
+      result.vlans = [result.ip + '/24']
+    return result
   })
 }
 function parse(ifConfigOut, routeOut) {
