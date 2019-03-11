@@ -54,6 +54,7 @@ function parseWindows(ifConfigOut){
     return {
       name: getInterfaceName(inface),
       ip: getInterfaceIpAddr(inface),
+      vlans: [],
       netmask: getInterfaceNetmaskAddr(inface),
       broadcast: getBroadcastAddr(inface),
       mac: getInterfaceMacAddr(inface),
@@ -77,6 +78,7 @@ function parse(ifConfigOut, routeOut) {
     return {
       name: getInterfaceName(lines[0]),
       ip: getInterfaceIpAddr(lines[1]),
+      vlans: getVlans(lines[0]),
       netmask: getInterfaceNetmaskAddr(lines[1]),
       broadcast: getBroadcastAddr(lines[1]),
       mac: getInterfaceMacAddr(lines[3]),
@@ -93,6 +95,32 @@ function getInterfaceName(line) {
     return _.first(line.split(':'));
 }
 
+/**
+ * get all VLans for this interface
+ *
+ * ifconfig output line:
+ *   - enp0s8 :
+ * 
+ * @param  {string} firstLine
+ * @return {string}           an array of vlans on this NIC
+ */
+function getVlans(line){
+  if (process.platform == 'win32' || line.length == 0){
+    return []
+  } else {
+    const nicName = /(.*):/.exec(line)[1]
+    const exec = require('child-process-promise').exec
+    const cmd = 'ip addr show dev ' + nicName
+    exec(cmd)
+    .then((ipAddrShow) => {
+      console.info(ipAddrShow)
+      return []
+    })
+    .catch((err) => {
+      f(err)
+    })
+  }
+}
 /**
  * extract mac adress
  *
@@ -158,6 +186,8 @@ function getInterfaceNetmaskAddr(line) {
     if (!_.includes(line, INET)) {
     return null;
     }
+    if (!_.includes(line,'netmask'))
+      return null
     return /netmask +([0-9,.]+)/.exec(line)[1]
   }
 }
