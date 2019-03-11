@@ -75,16 +75,46 @@ function parse(ifConfigOut, routeOut) {
      * inet xx:xxx.xxx.xxx.xxx mask|masque|...:xxx.xxx.xxx.xxx
      */
 
-    return {
+    const result = {
       name: getInterfaceName(lines[0]),
       ip: getInterfaceIpAddr(lines[1]),
-      vlans: getVlans(lines[0]),
+      vlans: [],
       netmask: getInterfaceNetmaskAddr(lines[1]),
       broadcast: getBroadcastAddr(lines[1]),
       mac: getInterfaceMacAddr(lines[3]),
       gateway: getGateway(routeOut)
-    };
-  });
+    }
+    if (result.name.length != 0)
+      result.vlans = getVlans(result.name)
+    return result
+  })
+}
+/**
+ * get all VLans for this interface
+ *
+ * ifconfig output line:
+ *   - enp0s8 :
+ * 
+ * @param  {string} firstLine
+ * @return {string}           an array of vlans on this NIC
+ */
+function getVlans(nicName){
+  if (process.platform == 'win32'){
+    return []
+  } else {
+    let vlans = []
+    const cp = require('child_process')
+    const cmd = 'ip addr show dev ' + nicName
+    const response = String.fromCharCode.apply(null,new Uint16Array(cp.execSync(cmd)))
+    const lines = response.split('\n')
+    lines.forEach(line => {
+      line = line.trim()
+      if (line.startsWith('inet ')){
+        vlans.push(line.split(' ')[1])
+      }
+    });
+    return vlans
+  }
 }
 
 function getInterfaceName(line) {
@@ -95,32 +125,7 @@ function getInterfaceName(line) {
     return _.first(line.split(':'));
 }
 
-/**
- * get all VLans for this interface
- *
- * ifconfig output line:
- *   - enp0s8 :
- * 
- * @param  {string} firstLine
- * @return {string}           an array of vlans on this NIC
- */
-function getVlans(line){
-  if (process.platform == 'win32' || line.length == 0){
-    return []
-  } else {
-    const nicName = /(.*):/.exec(line)[1]
-    const exec = require('child-process-promise').exec
-    const cmd = 'ip addr show dev ' + nicName
-    exec(cmd)
-    .then((ipAddrShow) => {
-      console.info(ipAddrShow)
-      return []
-    })
-    .catch((err) => {
-      f(err)
-    })
-  }
-}
+
 /**
  * extract mac adress
  *
