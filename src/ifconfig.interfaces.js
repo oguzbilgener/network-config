@@ -68,7 +68,7 @@ function parseWindows(ifConfigOut){
   })
 }
 function parse(ifConfigOut, routeOut) {
-  return ifConfigOut.split('\n\n').map(function (inface) {
+  return ifConfigOut.trim().split('\n\n').map(function (inface) {
     var lines = inface.split('\n');
 
     /**
