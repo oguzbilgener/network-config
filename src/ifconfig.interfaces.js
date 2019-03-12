@@ -51,7 +51,7 @@ module.exports = function (cp) {
 
 function parseWindows(ifConfigOut){
   return ifConfigOut.split('\n\r').map(function (inface) {
-    result =  {
+    const result =  {
       name: getInterfaceName(inface),
       ip: getInterfaceIpAddr(inface),
       vlans: [],
