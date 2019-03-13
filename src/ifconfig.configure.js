@@ -67,7 +67,7 @@ module.exports = function (cp) {
     const cmd = "sudo ip addr add " + description.ip + "/24 dev " + name
 
     cp.exec(cmd, function (err, __, stderr) {
-      if (stderr && stderr.search(/File exists/i))
+      if (stderr && stderr.search(/File exists/i) >= 0)
         err.message = 'IP address ' + description.ip + " already assigned"
       f(err || stderr || null);
     });
@@ -93,7 +93,7 @@ module.exports = function (cp) {
     const cmd = "sudo ip addr delete " + description.ip + "/24 dev " + name
 
     cp.exec(cmd, function (err, __, stderr) {
-      if (stderr && stderr.search(/Cannot assign/i))
+      if (stderr && stderr.search(/Cannot assign/i) >= 0)
         err.message = 'IP address ' + description.ip + " not current assigned"
       f(err || stderr || null);
     });
