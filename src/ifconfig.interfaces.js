@@ -181,7 +181,14 @@ function getInterfaceIpAddr(line) {
     if (!_.includes(line, INET)) {
       return null;
     }
-    return line.trim().split(' ')[1]
+    let ip = line.trim().split(' ')[1]
+
+    //  QNAP has a slightly different syntax for output of ifconfig
+    if (ip.search(':') >= 0){
+      ip = /.*: *(.*)/.exec(ip)
+      return ip[1]
+    } else
+      return ip
   }
 }
 
