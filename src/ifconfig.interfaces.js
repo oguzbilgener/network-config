@@ -1,4 +1,3 @@
-'use strict';
 var _ = require('lodash');
 
 var MAC = 'ether';
@@ -123,11 +122,18 @@ function getVlans(nicName){
 }
 
 function getInterfaceName(line) {
+  let nicName = null
+
+  //  On Windows it's different
   if (process.platform == 'win32'){
-    const nicName = /Configuration for interface "(.*)"/.exec(line)
+    nicName = /Configuration for interface "(.*)"/.exec(line)
     return nicName[1]
-  } else
-    return _.first(line.split(':'));
+  } else {
+
+    //  Other platforms
+    nicName = /(^[a-z,A-Z,0-9]+)/.exec(line)
+    return nicName[1]
+  }
 }
 
 
