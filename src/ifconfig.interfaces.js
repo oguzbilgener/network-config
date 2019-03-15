@@ -66,7 +66,7 @@ function parseWindows(ifConfigOut){
     return result
   })
 }
-function parse(ifConfigOut, routeOut) {
+function parse(ifConfigOut) {
   return ifConfigOut.trim().split('\n\n').map(function (inface) {
     var lines = inface.split('\n');
 
@@ -83,10 +83,9 @@ function parse(ifConfigOut, routeOut) {
       name: getInterfaceName(lines[0]),
       ip: getInterfaceIpAddr(lines[1]),
       vlans: [],
-      netmask: getInterfaceNetmaskAddr(lines[1]),
-      broadcast: getBroadcastAddr(lines[1]),
-      mac: getInterfaceMacAddr(lines[3]),
-      gateway: getGateway(routeOut)
+      //netmask: getInterfaceNetmaskAddr(lines[1]),
+      //broadcast: getBroadcastAddr(lines[1]),
+      //mac: getInterfaceMacAddr(lines[3]),
     }
     if (result.name.length != 0)
       result.vlans = getVlans(result.name)
