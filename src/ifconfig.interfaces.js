@@ -53,16 +53,16 @@ function parseWindows(ifConfigOut){
     const result =  {
       name: getInterfaceName(inface),
       ip: getInterfaceIpAddr(inface),
-      vlans: [],
+      ipAddresses: [],
       netmask: getInterfaceNetmaskAddr(inface),
       broadcast: getBroadcastAddr(inface),
       mac: getInterfaceMacAddr(inface),
       gateway: getGateway(inface)
     }
 
-    //  On windows, no vlans...but always have the primary IP
+    //  On windows, no multipe ip addresses...but always have the primary IP
     if (result.ip != null)
-      result.vlans = [result.ip + '/24']
+      result.ipAddresses = [result.ip + '/24']
     return result
   })
 }
@@ -82,30 +82,30 @@ function parse(ifConfigOut) {
     const result = {
       name: getInterfaceName(lines[0]),
       ip: getInterfaceIpAddr(lines[1]),
-      vlans: [],
+      ipAddresses: [],
       //netmask: getInterfaceNetmaskAddr(lines[1]),
       //broadcast: getBroadcastAddr(lines[1]),
       //mac: getInterfaceMacAddr(lines[3]),
     }
     if (result.name.length != 0)
-      result.vlans = getVlans(result.name)
+      result.ipAddresses = getipAddresses(result.name)
     return result
   })
 }
 /**
- * get all VLans for this interface
+ * get all IP addresses for this interface
  *
  * ifconfig output line:
  *   - enp0s8 :
  * 
  * @param  {string} firstLine
- * @return {string}           an array of vlans on this NIC
+ * @return {string}           an array of IP addresses on this NIC
  */
-function getVlans(nicName){
+function getipAddresses(nicName){
   if (process.platform == 'win32'){
     return []
   } else {
-    let vlans = []
+    let ipAddresses = []
     const cp = require('child_process')
     const cmd = 'ip addr show dev ' + nicName
     const response = String.fromCharCode.apply(null,new Uint16Array(cp.execSync(cmd)))
@@ -113,10 +113,10 @@ function getVlans(nicName){
     lines.forEach(line => {
       line = line.trim()
       if (line.startsWith('inet ')){
-        vlans.push(line.split(' ')[1])
+        ipAddresses.push(line.split(' ')[1])
       }
     });
-    return vlans
+    return ipAddresses
   }
 }
 
