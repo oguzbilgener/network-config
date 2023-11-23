@@ -130,7 +130,7 @@ function getInterfaceName(line) {
   } else {
 
     //  Other platforms
-    nicName = /(^[a-z,A-Z,0-9]+)/.exec(line)
+    nicName = /(^[a-z,A-Z,0-9\-]+)/.exec(line)
     return nicName[1]
   }
 }
